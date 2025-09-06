@@ -1,0 +1,8 @@
+{
+  "name": "AI Video GEN 2",
+  "description": "AI video generator ",
+  "requestFramePermissions": [
+    "microphone",
+    "camera"
+  ]
+}

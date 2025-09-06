@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Veo - Video Generation</title>
+  <link rel="stylesheet" href="index.css">
+  <script type="importmap">
+    {
+      "imports": {
+        "@google/genai": "https://esm.sh/@google/genai@^1.4.0",
+        "@ffmpeg/ffmpeg": "https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/ffmpeg.js",
+        "@ffmpeg/util": "https://unpkg.com/@ffmpeg/util@0.12.1/dist/esm/index.js"
+      }
+    }
+  </script>
+</head>
+<body>
+  <h1>Veo - Video Generation</h1>
+  <p>Enter a prompt.</p>
+  <p><textarea id="prompt-input" type="text" placeholder="Enter a prompt"></textarea></p>
+  <p>Provide a conditioning input (optional).</p>
+  <div class="input-controls">
+    <input id="file-input" type="file" accept="image/*" />
+    <span>or</span>
+    <button id="record-button">Record Video</button>
+  </div>
+  <img alt="Condition image" id="img" />
+  <div id="video-preview-container">
+    <video id="video-preview" muted playsinline></video>
+    <div id="recording-indicator">
+      <span class="indicator-dot"></span>
+      <span id="recording-timer">00:00</span>
+    </div>
+  </div>
+
+  <div class="config-container">
+    <div class="config-item">
+      <label for="aspect-ratio-select">Aspect Ratio</label>
+      <select id="aspect-ratio-select">
+        <option value="16:9" selected>16:9</option>
+        <option value="9:16">9:16</option>
+        <option value="1:1">1:1</option>
+        <option value="4:3">4:3</option>
+        <option value="3:4">3:4</option>
+      </select>
+    </div>
+    <div class="config-item">
+      <label for="duration-input">Duration (s)</label>
+      <input id="duration-input" type="number" value="1" min="1">
+    </div>
+    <div class="config-item">
+      <label for="quality-select">Video Quality</label>
+      <select id="quality-select">
+        <option value="720p" selected>Standard</option>
+        <option value="1080p">High</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="generate-controls">
+    <button id="preview-button">Generate Preview</button>
+    <button id="generate-button">Generate Full Video</button>
+  </div>
+  <div id="quota-error">
+    <p>Veo is available with limited free generations per day for testing.</p>
+    <p>You exceeded your current quota, to continue please use your paid API key.</p>
+    <p><button id="open-key">Click here to add your API key.</button></p>
+  </div>
+  <video id="video" controls playsinline></video>
+  <div id="video-controls-container">
+    <div class="video-control">
+      <input type="checkbox" id="loop-checkbox">
+      <label for="loop-checkbox">Loop</label>
+    </div>
+    <div class="video-control">
+      <label for="speed-select">Speed:</label>
+      <select id="speed-select">
+        <option value="0.5">0.5x</option>
+        <option value="1" selected>1x</option>
+        <option value="1.5">1.5x</option>
+        <option value="2">2x</option>
+      </select>
+    </div>
+    <div class="video-control">
+        <button id="edit-button">Edit</button>
+    </div>
+    <div class="video-control">
+        <button id="add-to-merge-bin-button">Add to Merge Bin</button>
+    </div>
+    <div class="video-control">
+        <button id="save-clip-button">Save to My Clips</button>
+    </div>
+    <div class="video-control">
+        <button id="download-button">Download</button>
+    </div>
+  </div>
+
+  <div id="video-editor-container">
+    <h3>Video Trimmer</h3>
+    <div class="trim-slider-container">
+      <div class="trim-slider-track"></div>
+      <div id="trim-slider-range"></div>
+      <input type="range" id="trim-start-slider" class="trim-slider" min="0" value="0" step="0.1">
+      <input type="range" id="trim-end-slider" class="trim-slider" min="0" value="100" step="0.1">
+    </div>
+    <div class="trim-times">
+      <div class="trim-time-input-group">
+        <label for="trim-start-input">Start:</label>
+        <input type="number" id="trim-start-input" step="0.1" min="0">
+        <span>s</span>
+      </div>
+      <div class="trim-time-input-group">
+        <label for="trim-end-input">End:</label>
+        <input type="number" id="trim-end-input" step="0.1" min="0">
+        <span>s</span>
+      </div>
+    </div>
+    <div class="trim-controls">
+      <button id="apply-trim-button">Apply Trim</button>
+      <button id="cancel-trim-button">Cancel</button>
+    </div>
+
+    <div class="effects-controls">
+      <h4>Visual Effects</h4>
+      <div class="effects-item">
+        <label for="effects-select">Apply Filter:</label>
+        <select id="effects-select">
+          <option value="none">None</option>
+          <option value="grayscale">Grayscale</option>
+          <option value="sepia">Sepia</option>
+          <option value="vignette">Vignette</option>
+          <option value="fade">Fade In/Out (1s)</option>
+          <option value="slowmo">Slow Motion (0.5x)</option>
+          <option value="fastforward">Fast Forward (2x)</option>
+        </select>
+      </div>
+      <button id="apply-effect-button">Apply Effect</button>
+    </div>
+  </div>
+
+  <div id="merge-bin-container">
+    <h3>Merge Bin</h3>
+    <div id="merge-bin-list-container">
+      <div id="merge-bin-list">
+        <!-- Merge clips will be dynamically inserted here -->
+      </div>
+    </div>
+    <div class="merge-bin-controls">
+      <button id="merge-videos-button" disabled>Merge Videos</button>
+      <button id="clear-merge-bin-button">Clear Bin</button>
+    </div>
+  </div>
+  
+  <div id="my-clips-container">
+    <h2>My Clips</h2>
+    <div id="my-clips-list">
+        <!-- Saved clips will be dynamically inserted here -->
+    </div>
+  </div>
+
+
+  <p id="status">Ready.</p>
+
+  <div id="agent-container">
+    <div id="chat-window">
+      <div class="message agent-message">
+        Hello! I'm your creative AI assistant. Let's make a video! We can create anything you can imagine. How about a whimsical animation of a a cat learning to fly, a photorealistic shot of a futuristic city, or an abstract visualization of music? What's on your mind?
+      </div>
+    </div>
+    <div class="agent-input-container">
+      <input id="agent-input" type="text" placeholder="e.g., 'Make a 5 second video of a robot dancing'" />
+      <button id="agent-mic-button" title="Use voice input">🎤</button>
+      <button id="agent-send-button">Send</button>
+    </div>
+  </div>
+
+  <script type="module" src="index.js"></script>
+</body>
+</html>
